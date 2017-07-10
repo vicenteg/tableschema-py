@@ -91,19 +91,19 @@ def infer(headers, values, row_limit=None, explicit=False, primary_key=None):
 # Internal
 
 _TYPE_ORDER = [
-    'duration',
-    'geojson',
-    'geopoint',
-    'object',
-    'array',
-    'datetime',
-    'time',
-    'date',
-    'integer',
-    'number',
-    'boolean',
-    'string',
-    'any',
+    ('duration',1),
+    ('geojson',1),
+    ('geopoint',1),
+    ('object',1),
+    ('array',1),
+    ('datetime',1),
+    ('time',1),
+    ('date',1),
+    ('integer',1),
+    ('number',3),
+    ('boolean',1),
+    ('string',1),
+    ('any',1),
 ]
 
 
@@ -116,11 +116,12 @@ class _TypeGuesser(object):
     """
 
     def cast(self, value):
-        for name in _TYPE_ORDER:
+        for name,weight in _TYPE_ORDER:
             cast = getattr(types, 'cast_%s' % name)
             result = cast('default', value)
             if result != config.ERROR:
-                return (name, 'default')
+                if name == 'string' and len(value) == 0: return ('any', 'default', .1)
+                return (name, 'default', weight)
 
 
 class _TypeResolver(object):
@@ -141,10 +142,11 @@ class _TypeResolver(object):
         else:
             counts = {}
             for result in results:
+                name,format,weight = result
                 if counts.get(result):
-                    counts[result] += 1
+                    counts[result] += (1 * result[2]) # weighted count
                 else:
-                    counts[result] = 1
+                    counts[result] =  (1 * result[2]) # weighted count
 
             # tuple representation of `counts` dict sorted by values
             sorted_counts = sorted(counts.items(), key=operator.itemgetter(1),
